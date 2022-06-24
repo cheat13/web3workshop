@@ -7,16 +7,17 @@ const { provider } = waffle;
 const DECIMAL = 18;
 const TOTAL_SUPPLY = utils.parseUnits("1000000", DECIMAL);
 const GOAL = utils.parseEther("1");
-const END_TIME_IN_MINUTES = 5; 
+const END_TIME_IN_MINUTES = 5;
 const UPKEEP_ADDRESS = "0x4Cb093f226983713164A62138C3F718A5b595F73";
 
-describe("Deploy smart funding contract", function () {
+describe("Deploy smart funding contract", () => {
   let owner;
+  let invester;
   let tokenContract;
   let fundingContract;
 
-  beforeEach(async function () {
-    owner = await ethers.getSigner();
+  beforeEach(async () => {
+    [owner, invester] = await ethers.getSigners();
 
     const KSNToken = await ethers.getContractFactory("KSNToken");
     tokenContract = await KSNToken.deploy();
@@ -27,12 +28,12 @@ describe("Deploy smart funding contract", function () {
     await fundingContract.deployed();
   });
 
-  it("Should deploy smartfunding", async function () {
+  it("Should deploy smartfunding", async () => {
     expect(await fundingContract.tokenAddress()).to.equal(tokenContract.address, UPKEEP_ADDRESS);
     expect(await tokenContract.totalSupply()).to.equal(TOTAL_SUPPLY);
   });
 
-  it("Should transfer from tokenContract to fundingContract", async function () {
+  it("Should transfer from tokenContract to fundingContract", async () => {
     expect(await tokenContract.balanceOf(owner.address)).to.equal(TOTAL_SUPPLY);
 
     await tokenContract.connect(owner).transfer(fundingContract.address, TOTAL_SUPPLY);
@@ -41,13 +42,18 @@ describe("Deploy smart funding contract", function () {
     expect(await tokenContract.balanceOf(fundingContract.address)).to.equal(TOTAL_SUPPLY);
   });
 
-  it("Should initialize", async function () {
+  it("Should initialize success", async () => {
     await fundingContract.initialize(GOAL, END_TIME_IN_MINUTES);
     expect(await fundingContract.goal()).to.equal(GOAL);
   });
+
+  it("Should initialize fail", async () => {
+    const tx = fundingContract.connect(invester).initialize(GOAL, END_TIME_IN_MINUTES);
+    await expect(tx).to.be.revertedWith("Ownable: caller is not the owner");
+  });
 });
 
-describe("SmartFunding operations", function () {
+describe("SmartFunding operations", () => {
   let owner;
   let invester1;
   let invester2;
@@ -55,7 +61,7 @@ describe("SmartFunding operations", function () {
   let tokenContract;
   let fundingContract;
 
-  beforeEach(async function () {
+  beforeEach(async () => {
     [owner, invester1, invester2, invester3] = await ethers.getSigners();
 
     const KSNToken = await ethers.getContractFactory("KSNToken");
@@ -72,7 +78,7 @@ describe("SmartFunding operations", function () {
     await fundingContract.initialize(GOAL, END_TIME_IN_MINUTES);
   });
 
-  it("Should invest success", async function () {
+  it("Should invest success", async () => {
     const tx1 = await fundingContract.connect(invester1).invest({ value: utils.parseEther("0.1") });
     const tx2 = await fundingContract.connect(invester2).invest({ value: utils.parseEther("0.2") });
     await tx1.wait();
@@ -91,12 +97,12 @@ describe("SmartFunding operations", function () {
     // expect(tx2).to.emit(fundingContract, "Invest").withArgs(invester2.address, utils.parseEther("0.1"));
   })
 
-  it("Should invest fail", async function () {
+  it("Should invest fail", async () => {
     const tx = fundingContract.connect(invester3).invest({ value: utils.parseEther("0") });
     await expect(tx).to.be.revertedWith("Required amount of investment");
   });
 
-  it("Should Claim reward success", async function () {
+  it("Should Claim reward success", async () => {
     const tx1 = await fundingContract.connect(invester1).invest({ value: utils.parseEther("0.9") });
     const tx2 = await fundingContract.connect(invester2).invest({ value: utils.parseEther("0.1") });
     await tx1.wait();
@@ -118,20 +124,20 @@ describe("SmartFunding operations", function () {
     expect(await tokenContract.balanceOf(invester2.address)).to.equal(utils.parseUnits("100000", DECIMAL));
     expect(await tokenContract.balanceOf(fundingContract.address)).to.equal(0);
 
-    // expect(tx1).to.emit(fundingContract, "ClaimReward").withArgs(invester1.address, utils.parseUnits("900000", DECIMAL));
-    // expect(tx1).to.emit(fundingContract, "ClaimReward").withArgs(invester2.address, utils.parseUnits("100000", DECIMAL));
+    expect(tx1).to.emit(fundingContract, "ClaimReward").withArgs(invester1.address, utils.parseUnits("900000", DECIMAL));
+    expect(tx1).to.emit(fundingContract, "ClaimReward").withArgs(invester2.address, utils.parseUnits("100000", DECIMAL));
 
-    // expect(tx1).to.emit(tokenContract, "Transfer").withArgs(fundingContract.address, invester1.address, utils.parseUnits("900000", DECIMAL));
-    // expect(tx2).to.emit(tokenContract, "Transfer").withArgs(fundingContract.address, invester2.address, utils.parseUnits("100000", DECIMAL));
+    expect(tx1).to.emit(tokenContract, "Transfer").withArgs(fundingContract.address, invester1.address, utils.parseUnits("900000", DECIMAL));
+    expect(tx2).to.emit(tokenContract, "Transfer").withArgs(fundingContract.address, invester2.address, utils.parseUnits("100000", DECIMAL));
   });
 
-  it("Should Claim fail with 'No reward to claim'", async function () {
+  it("Should Claim fail with 'No reward to claim'", async () => {
     await fundingContract.setVariable("fundingStage", 2);
     const tx = fundingContract.connect(invester3).claim();
     await expect(tx).to.be.revertedWith("No reward to claim");
   });
 
-  it("Should Claim fail with 'Already claimed'", async function () {
+  it("Should Claim fail with 'Already claimed'", async () => {
     const tx = await fundingContract.connect(invester3).invest({ value: utils.parseEther("0.9") });
     await tx.wait();
 
@@ -143,7 +149,7 @@ describe("SmartFunding operations", function () {
     await expect(txClaimAgain).to.be.revertedWith("Already claimed");
   });
 
-  it("Shold Refund success", async function () {
+  it("Shold Refund success", async () => {
     const txInvest = await fundingContract.connect(invester1).invest({ value: utils.parseEther("0.1") });
     await txInvest.wait();
 
@@ -158,7 +164,7 @@ describe("SmartFunding operations", function () {
     expect(await provider.getBalance(fundingContract.address)).to.equal(0);
   });
 
-  it("Should Claim fail with 'No investment to refund'", async function () {
+  it("Should Claim fail with 'No investment to refund'", async () => {
     const txInvest = await fundingContract.connect(invester1).invest({ value: utils.parseEther("0.1") });
     await txInvest.wait();
 
@@ -168,5 +174,15 @@ describe("SmartFunding operations", function () {
 
     const txRefundAgain = fundingContract.connect(invester3).refund();
     await expect(txRefundAgain).to.be.revertedWith("No investment to refund");
+  });
+
+  it("should Calculate success", async () => {
+    const reward = await fundingContract.connect(invester1).calculateReward(utils.parseEther("0.9"));
+    expect(reward).to.equal(utils.parseUnits("900000", DECIMAL));
+  });
+
+  it("should Calculate over pay success", async () => {
+    const reward = await fundingContract.connect(invester1).calculateReward(utils.parseEther("2"));
+    expect(reward).to.equal(utils.parseUnits("1000000", DECIMAL));
   });
 });
