@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers, waffle } = require("hardhat");
+const { smock } = require("@defi-wonderland/smock");
 const { utils } = ethers;
 const { provider } = waffle;
 
@@ -60,7 +61,8 @@ describe("SmartFunding operations", function () {
     tokenContract = await KSNToken.deploy();
     await tokenContract.deployed();
 
-    const SmartFunding = await ethers.getContractFactory("SmartFunding");
+    // const SmartFunding = await ethers.getContractFactory("SmartFunding");
+    const SmartFunding = await smock.mock("SmartFunding");
     fundingContract = await SmartFunding.deploy(tokenContract.address);
     await fundingContract.deployed();
 
@@ -99,6 +101,7 @@ describe("SmartFunding operations", function () {
     await tx1.wait();
     await tx2.wait();
 
+    await fundingContract.setVariable("fundingStage", 2);
     const txClaim1 = await fundingContract.connect(invester1).claim();
     const txClaim2 = await fundingContract.connect(invester2).claim();
     await txClaim1.wait();
@@ -122,6 +125,7 @@ describe("SmartFunding operations", function () {
   });
 
   it("Should Claim fail with 'No reward to claim'", async function () {
+    await fundingContract.setVariable("fundingStage", 2);
     const tx = fundingContract.connect(invester3).claim();
     await expect(tx).to.be.revertedWith("No reward to claim");
   });
@@ -130,6 +134,7 @@ describe("SmartFunding operations", function () {
     const tx = await fundingContract.connect(invester3).invest({ value: utils.parseEther("0.9") });
     await tx.wait();
 
+    await fundingContract.setVariable("fundingStage", 2);
     const txClaim = await fundingContract.connect(invester3).claim();
     await txClaim.wait();
 
@@ -137,13 +142,14 @@ describe("SmartFunding operations", function () {
     await expect(txClaimAgain).to.be.revertedWith("Already claimed");
   });
 
-  if ("Shold Refund success", async function () {
+  it("Shold Refund success", async function () {
     const txInvest = await fundingContract.connect(invester1).invest({ value: utils.parseEther("0.1") });
     await txInvest.wait();
 
+    await fundingContract.setVariable("fundingStage", 3);
     const txRefund = await fundingContract.connect(invester1).refund();
     await txRefund.wait();
-    
+
     expect(await fundingContract.pool()).to.equal(0);
     expect(await fundingContract.investOf(invester1.address)).to.equal(0);
     expect(await fundingContract.rewardOf(invester1.address)).to.equal(0);
@@ -154,7 +160,8 @@ describe("SmartFunding operations", function () {
   it("Should Claim fail with 'No investment to refund'", async function () {
     const txInvest = await fundingContract.connect(invester1).invest({ value: utils.parseEther("0.1") });
     await txInvest.wait();
-    
+
+    await fundingContract.setVariable("fundingStage", 3);
     const txRefund = await fundingContract.connect(invester1).refund();
     await txRefund.wait();
 

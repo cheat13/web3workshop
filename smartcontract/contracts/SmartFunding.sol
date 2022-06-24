@@ -4,13 +4,7 @@ pragma solidity ^0.8.15;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SmartFunding {
-    enum STAGE {
-        INACTIVE,
-        ACTIVE,
-        SUCESS,
-        FAILED
-    }
-    STAGE public fundingStages;
+    uint256 public fundingStage; // 0 = INACTIVE, 1 = ACTIVE, 2 = SUCCESS, 3 = FAIL
     address public tokenAddress;
     uint256 public goal;
     uint256 public pool;
@@ -26,17 +20,17 @@ contract SmartFunding {
 
     constructor(address _tokenAddress) {
         tokenAddress = _tokenAddress;
-        fundingStages = STAGE.INACTIVE;
+        fundingStage = 0;
     }
 
     function initialize(uint256 _goal, uint256 _endTimeInDay) external {
         goal = _goal;
         endTime = block.timestamp + (_endTimeInDay * 1 days);
-        fundingStages = STAGE.ACTIVE;
+        fundingStage = 1;
     }
 
     function invest() external payable {
-        require(fundingStages == STAGE.ACTIVE, "Funding is not active");
+        require(fundingStage == 1, "Funding is not active");
         require(block.timestamp < endTime, "Time is up");
         require(msg.value > 0, "Required amount of investment");
         require(msg.value <= goal, "Investment is too large");
@@ -50,7 +44,7 @@ contract SmartFunding {
     }
 
     function refund() external {
-        require(fundingStages == STAGE.ACTIVE, "Funding is not active");
+        require(fundingStage == 3, "Funding is not fail");
         require(investOf[msg.sender] > 0, "No investment to refund");
 
         uint256 invertAmount = investOf[msg.sender];
@@ -66,7 +60,7 @@ contract SmartFunding {
     }
 
     function claim() external {
-        require(fundingStages == STAGE.SUCESS, "Funding is not successful");
+        require(fundingStage == 2, "Funding is not successful");
         require(!claimedOf[msg.sender], "Already claimed");
         require(rewardOf[msg.sender] > 0, "No reward to claim");
 
