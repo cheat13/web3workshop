@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "npx hardhat test"
+    "test": "npx hardhat test",
+    "deploy-rinkeby": "npx hardhat run scripts/deploy-smartfunding.js --network rinkeby",
+    "deploy-kovan": "npx hardhat run scripts/deploy-smartfunding.js --network kovan"
   },
   "author": "",
   "license": "ISC",
@@ -31,6 +33,7 @@
     "solidity-coverage": "^0.7.21"
   },
   "dependencies": {
+    "@chainlink/contracts": "^0.4.1",
     "@defi-wonderland/smock": "^2.0.7",
     "@openzeppelin/contracts": "^4.6.0"
   }

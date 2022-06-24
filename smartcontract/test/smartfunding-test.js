@@ -7,7 +7,8 @@ const { provider } = waffle;
 const DECIMAL = 18;
 const TOTAL_SUPPLY = utils.parseUnits("1000000", DECIMAL);
 const GOAL = utils.parseEther("1");
-const END_TIME_IN_DAY = 7;
+const END_TIME_IN_MINUTES = 5; 
+const UPKEEP_ADDRESS = "0x4Cb093f226983713164A62138C3F718A5b595F73";
 
 describe("Deploy smart funding contract", function () {
   let owner;
@@ -22,12 +23,12 @@ describe("Deploy smart funding contract", function () {
     await tokenContract.deployed();
 
     const SmartFunding = await ethers.getContractFactory("SmartFunding");
-    fundingContract = await SmartFunding.deploy(tokenContract.address);
+    fundingContract = await SmartFunding.deploy(tokenContract.address, UPKEEP_ADDRESS);
     await fundingContract.deployed();
   });
 
   it("Should deploy smartfunding", async function () {
-    expect(await fundingContract.tokenAddress()).to.equal(tokenContract.address);
+    expect(await fundingContract.tokenAddress()).to.equal(tokenContract.address, UPKEEP_ADDRESS);
     expect(await tokenContract.totalSupply()).to.equal(TOTAL_SUPPLY);
   });
 
@@ -41,7 +42,7 @@ describe("Deploy smart funding contract", function () {
   });
 
   it("Should initialize", async function () {
-    await fundingContract.initialize(GOAL, END_TIME_IN_DAY);
+    await fundingContract.initialize(GOAL, END_TIME_IN_MINUTES);
     expect(await fundingContract.goal()).to.equal(GOAL);
   });
 });
@@ -63,12 +64,12 @@ describe("SmartFunding operations", function () {
 
     // const SmartFunding = await ethers.getContractFactory("SmartFunding");
     const SmartFunding = await smock.mock("SmartFunding");
-    fundingContract = await SmartFunding.deploy(tokenContract.address);
+    fundingContract = await SmartFunding.deploy(tokenContract.address, UPKEEP_ADDRESS);
     await fundingContract.deployed();
 
     await tokenContract.connect(owner).transfer(fundingContract.address, TOTAL_SUPPLY);
 
-    await fundingContract.initialize(GOAL, END_TIME_IN_DAY);
+    await fundingContract.initialize(GOAL, END_TIME_IN_MINUTES);
   });
 
   it("Should invest success", async function () {

@@ -2,13 +2,15 @@
 pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@chainlink/contracts/src/v0.8/KeeperCompatible.sol";
 
-contract SmartFunding {
+contract SmartFunding is KeeperCompatibleInterface {
     uint256 public fundingStage; // 0 = INACTIVE, 1 = ACTIVE, 2 = SUCCESS, 3 = FAIL
     address public tokenAddress;
     uint256 public goal;
     uint256 public pool;
     uint256 public endTime;
+    address upkeepAddress;
 
     mapping(address => uint256) public investOf;
     mapping(address => uint256) public rewardOf;
@@ -17,15 +19,17 @@ contract SmartFunding {
     event Invest(address indexed from, uint256 amount);
     event ClaimReward(address indexed from, uint256 amount);
     event Refund(address indexed from, uint256 amount);
+    event PerformUpkeep(address indexed from);
 
-    constructor(address _tokenAddress) {
+    constructor(address _tokenAddress, address _upkeepAddress) {
         tokenAddress = _tokenAddress;
         fundingStage = 0;
+        upkeepAddress = _upkeepAddress;
     }
 
-    function initialize(uint256 _goal, uint256 _endTimeInDay) external {
+    function initialize(uint256 _goal, uint256 _endTimeInMinutes) external {
         goal = _goal;
-        endTime = block.timestamp + (_endTimeInDay * 1 days);
+        endTime = block.timestamp + (_endTimeInMinutes * 1 minutes);
         fundingStage = 1;
     }
 
@@ -72,6 +76,23 @@ contract SmartFunding {
         IERC20(tokenAddress).transfer(msg.sender, reward);
 
         emit ClaimReward(msg.sender, reward);
+    }
+
+    function checkUpkeep(bytes calldata)
+        external
+        view
+        override
+        returns (bool upkeepNeeded, bytes memory)
+    {
+        upkeepNeeded = fundingStage == 1 && block.timestamp >= endTime;
+    }
+
+    function performUpkeep(bytes calldata) external override {
+        require(msg.sender == upkeepAddress, "Upkeep address is not correct");
+        
+        fundingStage = pool >= goal ? 2 : 3;
+
+        emit PerformUpkeep(msg.sender);
     }
 
     function _getReward() private view returns (uint256) {
