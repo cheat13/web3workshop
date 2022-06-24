@@ -36,7 +36,7 @@ contract SmartFunding {
         emit Invest(msg.sender, msg.value);
     }
 
-    function getReward() internal view returns (uint256) {
+    function getReward() private view returns (uint256) {
         uint256 totalSupply = IERC20(tokenAddress).totalSupply();
         return (totalSupply / goal) * msg.value;
     }
